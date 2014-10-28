@@ -47,6 +47,7 @@ NSString * const kMDWampRoleCallee      = @"callee";
 @property (nonatomic, strong) NSMutableDictionary *subscriptionRequests;
 @property (nonatomic, strong) NSMutableDictionary *subscriptionEvents;
 @property (nonatomic, strong) NSMutableDictionary *subscriptionID;
+@property (nonatomic, strong) NSMutableDictionary *subscriptionRealID;
 
 @property (nonatomic, strong) NSMutableDictionary *publishRequests;
 
@@ -89,6 +90,7 @@ NSString * const kMDWampRoleCallee      = @"callee";
         self.subscriptionID         = [[NSMutableDictionary alloc] init];
         self.publishRequests        = [[NSMutableDictionary alloc] init];
         
+        self.subscriptionRealID          = [[NSMutableDictionary alloc] init];
         self.roles = @{kMDWampRolePublisher:@{}, kMDWampRoleSubscriber:@{}, kMDWampRoleCaller:@{}, kMDWampRoleCallee:@{}};
 	}
 	return self;
@@ -111,6 +113,8 @@ NSString * const kMDWampRoleCallee      = @"callee";
     [self.subscriptionEvents     removeAllObjects];
     [self.subscriptionID         removeAllObjects];
     [self.publishRequests        removeAllObjects];
+    
+    [self.subscriptionRealID     removeAllObjects];
 }
 
 #pragma mark -
@@ -373,6 +377,8 @@ NSString * const kMDWampRoleCallee      = @"callee";
         MDWampSubscribed *subscribed = (MDWampSubscribed *)message;
         NSArray *callbacks = self.subscriptionRequests[subscribed.request];
         
+        //[self.subscriptionID setObject:request forKey:topic];
+        [self.subscriptionRealID setObject:subscribed.subscription forKey:subscribed.request];
         // retrieve list of subscribers
         NSMutableArray *subscribers = [self.subscriptionEvents objectForKey:subscribed.subscription];
         if (subscribers == nil) {
@@ -394,10 +400,10 @@ NSString * const kMDWampRoleCallee      = @"callee";
         
         NSNumber *subscription = self.subscriptionID[infos[1]];
         [self.subscriptionEvents removeObjectForKey:subscription];
-        [self.subscriptionID removeObjectForKey:infos[1]];
-        
+        NSString *oldRequestId = self.subscriptionID[infos[1]];
+        [self.subscriptionRealID removeObjectForKey:oldRequestId];
         [self.subscriptionRequests removeObjectForKey:unsub.request];
-        
+        [self.subscriptionID removeObjectForKey:infos[1]];
         void(^resultCallback)(NSError *) = infos[0];
         resultCallback(nil);
         
@@ -534,7 +540,6 @@ NSString * const kMDWampRoleCallee      = @"callee";
     // we have to wait Subscribed message before add event
     [self.subscriptionRequests setObject:@[result, eventBlock] forKey:request];
     [self.subscriptionID setObject:request forKey:topic];
-
     [self sendMessage:subscribe];
 }
 
@@ -548,7 +553,9 @@ NSString * const kMDWampRoleCallee      = @"callee";
     }
     
     NSNumber *request = [self generateID];
-    NSNumber *subscription = self.subscriptionID[topic];
+    //NSNumber *subscription = self.subscriptionID[topic];
+    NSString *oldRequestId = self.subscriptionID[topic];
+    NSNumber *subscription = self.subscriptionRealID[oldRequestId];
     NSArray *payload = @[request, subscription];
     // storing callback for unsubscription result
     [self.subscriptionRequests setObject:@[result, topic] forKey:request];
